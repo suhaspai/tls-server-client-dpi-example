@@ -59,4 +59,4 @@ changes ?= "add local changes to Git"
 push:
 	git add .
 	git commit -m ${changes}
-	git push -u -f origin master.
+	git push -u -f origin master
