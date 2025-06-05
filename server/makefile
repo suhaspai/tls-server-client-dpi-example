@@ -5,10 +5,10 @@ port   ?= 8080
 
 build: server.sv server.c
 	verilator --cc --exe --build --timing --main \
-	+define+BUFLEN=${BUFLEN} -y . -y .. +incdir+${PWD} \
-	-CFLAGS "-DBUFLEN=${BUFLEN}" \
+	-CFLAGS "-DBUFLEN=${BUFLEN} -I${PWD}/.." +incdir+.. \
 	server.sv server.c --top-module server \
 	-LDFLAGS "-lssl -lcrypto"
+# "make link" only if --build is not used
 link:
 	make -j -C obj_dir -f Vserver.mk Vserver 
 run:

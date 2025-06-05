@@ -20,127 +20,11 @@
 #include <openssl/err.h>
 
 // For DPI api
-#include "svdpi.h"
+#include "packet.h"
 
 static SSL_CTX *ctx;
 static SSL     *ssl;
-static int      ssl_mode;
 static int      socket_fd;
-
-// Defaults
-#define DEFAULT_TCP_PORT   8080
-#define CLIENT_CONNECT_TO  1800  // seconds
-#define DEFAULT_STATS_INTV 60    // seconds
-#define WAIT_SECONDS       10
-
-time_t start_time;
-time_t end_time;
-
-int long total_tx_data;
-int long total_rx_data;
-int  stats_interval;
-
-#ifndef BUFLEN
-#define BUFLEN 4
-#endif
-
-typedef struct {
-   svBitVecVal control;
-   svLogicVecVal data[BUFLEN*32/32];   
-} c_data_t;
-
-extern "C" void print_throughput_stats(const char *port)
-{
-   time_t run_time;
-
-   end_time = time(NULL);
-   run_time = end_time - start_time;
-
-   if (run_time >= stats_interval)
-   {
-      printf("%s Sim-Time= %10ld sec, Throughput: TX= %8.3lf kB/s \t RX= %8.3lf kB/s\n", port, run_time,
-             ((double) total_tx_data/run_time/1000), ((double) total_rx_data/run_time/1000));
-      start_time    = end_time;
-      total_tx_data = 0;
-      total_rx_data = 0;
-   }
-}
-
-extern "C" int c_get_ssl_mode(const char *env_var) {
-   char *value;
-   value = getenv(env_var);
-   if (value == NULL) {
-      printf("Default SSL mode= %d\n", ssl_mode);
-      return (ssl_mode);
-   }
-   else {
-      sscanf(value, "%d", &ssl_mode);
-      printf("User defined SSL mode= %d\n", ssl_mode);      
-      return (ssl_mode);
-   }
-}
-
-extern "C" const char * c_get_server_ip(const char *env_var) {
-   char *value;
-
-   value = getenv(env_var);
-   if (value == NULL) {
-      printf("Default server IP address set to %s\n","localhost");
-      return ("localhost");
-   }
-   else {
-      printf("User programmed server IP address to %s\n", value);      
-      return (value);
-   }
-}
-
-extern "C" int c_get_tcp_port(const char *env_var) {
-   char *value;
-   int   tcp_port;
-   
-   value = getenv(env_var);
-   if (value == NULL) {
-      printf("Default TCP port= %d\n", DEFAULT_TCP_PORT);
-      return (DEFAULT_TCP_PORT);
-   }
-   else {
-      sscanf(value, "%d", &tcp_port);
-      printf("User defined TCP/IP port= %d\n", tcp_port);      
-      return (tcp_port);
-   }
-}
-
-extern "C" int c_get_stats_intv(const char *env_var) {
-   char * value;
-   int  intv;
-
-   value = getenv(env_var);
-   if (value == NULL) {
-      printf("Default stats interval set to %d seconds\n",DEFAULT_STATS_INTV);
-      return (DEFAULT_STATS_INTV);
-   }
-   else {
-      sscanf(value, "%d", &intv);      
-      printf("User programmed throughput stats interval to %d seconds\n", intv);  
-      return (intv);
-   }
-}
-
-extern "C" int c_get_max_retry_time(const char *env_var) {
-   char *value;
-   int   max_time;
-   
-   value = getenv(env_var);
-   if (value == NULL) {
-      printf("Default max client connect time in seconds= %d\n", CLIENT_CONNECT_TO);
-      return (CLIENT_CONNECT_TO);
-   }
-   else {
-      sscanf(value, "%d", &max_time);
-      printf("User defined max client connect time in seconds= %d\n", max_time);      
-      return (max_time);
-   }
-}
 
 extern "C" void close_socket()
 {
@@ -293,35 +177,35 @@ extern "C" int net_open_client_socket(const char* transport)
    return (0);
 }
 
-extern "C" int  client_send(const c_data_t * device_tx_data)
+extern "C" int  client_send(const packet_t * device_tx_data)
 {
    int ret;
 
    if (ssl_mode)
-      ret = SSL_write(ssl, device_tx_data, sizeof(c_data_t) );
+      ret = SSL_write(ssl, device_tx_data, sizeof(packet_t) );
    else
-      ret = send(socket_fd, device_tx_data, sizeof(*device_tx_data),0);
+      ret = send(socket_fd, device_tx_data, sizeof(packet_t),0);
 
    if(ret>0)
    {
-      total_tx_data += sizeof(*device_tx_data);
+      total_tx_data += sizeof(packet_t);
       print_throughput_stats("client");
    }
 
    return(ret);
 } 
 
-extern "C" int client_recv(c_data_t * device_rx_data)
+extern "C" int client_recv(packet_t * device_rx_data)
 {
    int ret;
    if (ssl_mode)
-      ret = SSL_read(ssl, device_rx_data, sizeof(c_data_t) );
+      ret = SSL_read(ssl, device_rx_data, sizeof(packet_t) );
    else
-      ret = recv(socket_fd, device_rx_data, sizeof(*device_rx_data),0);
+      ret = recv(socket_fd, device_rx_data, sizeof(packet_t),0);
 
    if(ret>0)
    {
-      total_rx_data += sizeof(*device_rx_data);
+      total_rx_data += sizeof(packet_t);
       print_throughput_stats("client");
    }
 

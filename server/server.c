@@ -13,15 +13,12 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-#include <sys/time.h>
-#include <time.h>
+// Application
+#include "packet.h"
 
 // For SSL api
 #include <openssl/ssl.h>
 #include <openssl/err.h>
-
-// For DPI api
-#include "svdpi.h"
 
 #define CERTFILE "server.crt"
 #define KEYFILE  "server.key"
@@ -29,92 +26,7 @@
 // hide locally
 static SSL     *ssl;            
 static SSL_CTX *ctx;
-
 static int      clientfd;
-static int      ssl_mode;
-
-#define DEFAULT_TCP_PORT   8080
-#define DEFAULT_STATS_INTV 60   // seconds
-
-// For throughput stats
-time_t        start_time;
-time_t        end_time;
-
-unsigned long total_tx_data;
-unsigned long total_rx_data;
-unsigned      stats_interval;
-
-#ifndef BUFLEN
-#define BUFLEN 4
-#endif
-
-typedef struct {
-   svBitVecVal control;
-   svLogicVecVal data[BUFLEN*32/32];   
-} c_data_t;
-
-extern "C" void print_throughput_stats(const char *port)
-{
-   time_t run_time;
-   end_time = time(NULL);
-   run_time = end_time - start_time;
-
-   if (run_time >= stats_interval)
-   {
-      printf("%s Sim-Time= %10ld sec, Throughput: TX= %8.3lf kB/s \t RX= %8.3lf kB/s\n", port, run_time,
-      ((double) total_tx_data/run_time/1000), ((double) total_rx_data/run_time/1000));
-
-      start_time    = end_time;
-      total_tx_data = 0;
-      total_rx_data = 0;
-   }
-}
-
-extern "C" int c_get_ssl_mode(const char *env_var) {
-   char *value;
-   value = getenv(env_var);
-   if (value == NULL) {
-      printf("Default SSL mode= %d\n", ssl_mode);
-      return (ssl_mode);
-   }
-   else {
-      sscanf(value, "%d", &ssl_mode);
-      printf("User defined SSL mode= %d\n", ssl_mode);      
-      return (ssl_mode);
-   }
-}
-
-extern "C" int c_get_tcp_port(const char *env_var) {
-   char *value;
-   int   tcp_port;
-   
-   value = getenv(env_var);
-   if (value == NULL) {
-      printf("Server returning TCP port= %d\n", DEFAULT_TCP_PORT);
-      return (DEFAULT_TCP_PORT);
-   }
-   else {
-      sscanf(value, "%d", &tcp_port);
-      printf("User programmed TCP/IP port to %d\n", tcp_port);      
-      return (tcp_port);
-   }
-}
-
-extern "C" int c_get_stats_intv(const char *env_var) {
-   char * value;
-   int  intv;
-
-   value = getenv(env_var);
-   if (value == NULL) {
-      printf("Default stats interval set to %d seconds\n",DEFAULT_STATS_INTV);
-      return (DEFAULT_STATS_INTV);
-   }
-   else {
-      sscanf(value, "%d", &intv);      
-      printf("User programmed TCP/IP throughput stats interval to %d seconds\n", intv);      
-      return (intv);
-   }
-}
 
 extern "C" void close_socket()
 {
@@ -351,36 +263,36 @@ extern "C" int net_open_server_socket(const char *transport)
    return (0);
 }
 
-extern "C" int server_send(const c_data_t * host_tx_data)
+extern "C" int server_send(const packet_t * host_tx_data)
 {
    int ret;
    
    if (ssl_mode)
-      ret = SSL_write(ssl, host_tx_data, sizeof(*host_tx_data));
+      ret = SSL_write(ssl, host_tx_data, sizeof(packet_t));
    else
-      ret = send(clientfd, host_tx_data, sizeof(*host_tx_data), 0);
+      ret = send(clientfd, host_tx_data, sizeof(packet_t), 0);
 
    if(ret > 0)
    {
-      total_tx_data += sizeof(*host_tx_data);
+      total_tx_data += sizeof(packet_t);
       print_throughput_stats("server");
    }
 
    return (ret);
 } 
 
-extern "C" int server_recv(c_data_t * host_rx_data)
+extern "C" int server_recv(packet_t * host_rx_data)
 {
    int ret;
 
    if (ssl_mode)
-      ret = SSL_read(ssl, host_rx_data, sizeof(*host_rx_data));
+      ret = SSL_read(ssl, host_rx_data, sizeof(packet_t));
    else
-      ret = recv(clientfd, host_rx_data, sizeof(*host_rx_data), 0);
+      ret = recv(clientfd, host_rx_data, sizeof(packet_t), 0);
 
    if(ret > 0)
    {
-      total_rx_data += sizeof(*host_rx_data);
+      total_rx_data += sizeof(packet_t);
       print_throughput_stats("server");
    }
 

@@ -5,9 +5,6 @@ TCP_PORT  ?= 8080
 transport ?= tcp
 delay     ?= 4000
 
-clean:
-	cd server && make clean
-	cd client && make clean
 build:
 	cd server && make build
 	cd client && make build
@@ -43,6 +40,10 @@ run_client:
 run_server:
 	cd server && make run &
 
+clean:
+	cd server && make clean
+	cd client && make clean
+
 # Housekeeping
 kill:
 	fuser -i -TERM -k ${TCP_PORT}/${transport} &
@@ -54,4 +55,8 @@ udp_stat:
 	netstat -vaun | grep ${TCP_PORT} &
 pid:
 	lsof -ti :${TCP_PORT}
-
+changes ?= "add local changes to Git"
+push:
+	git add .
+	git commit -m ${changes}
+	git push -u -f origin master.

@@ -4,10 +4,10 @@ DELAY  ?= 2000
 
 build: client.sv client.c
 	verilator --cc --exe --build --timing --main \
-	+define+BUFLEN=${BUFLEN} -y . -y .. +incdir+${PWD} \
-	-CFLAGS "-DBUFLEN=${BUFLEN}" \
+	-CFLAGS "-DBUFLEN=${BUFLEN} -I${PWD}/.." +incdir+.. \
 	client.sv client.c --top-module client \
 	-LDFLAGS "-lssl -lcrypto"
+# "make link" only if --build is not used
 link:
 	make -j -C obj_dir -f Vclient.mk Vclient
 run:
