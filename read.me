@@ -1,0 +1,97 @@
+# read.me
+
+Build time environment variables:
+BUFLEN     Used by vcs command to decide depth of buffer (+define+BUFLEN=${BUFLEN}) which is defaulted to 4 if no env variable is set
+
+Run-time environment variables used in system verilog code:
++verbose             simv run-time plusarg variable which prints every sample (./simv  .. +verbose)                   (default: verbose=0)
++delay=${DELAY}      simv run-time plusarg variable which controls how long sim runs per PCIe Gen (Total=6*delay)     (default: 1 ns)
+
+Other run-time environment variables used in C-DPI c functions
+SERVER_IP           The server ip address client should connect to                                                    (default = "localhost")
+STATS_INTV          prints tcp/ip throughput stats every STATS_INTV seconds                                           (default = 60 seconds)
+TCP_PORT            which TCP/IP port to use                                                                          (default = 8080)
+CLIENT_CONNECT_TO   client will keep trying to connect to server every 10 seconds and will give up after this timeout (default = 1800 seconds)
+SSL_MODE            If set to 1 (true), use TLS to encrypt data
+
+
+------------------------------------------------------------------------------------------------------------------
+Build and Run Steps:
+
+source sourc.me         # Source EDA tools and license paths 
+make clean              # Deletes old build
+make build              # Creates new buiild (.so and simv), uses env variable BUFLEN to buffer data before transmitting
+make kill               # Free the tcp port used in simulation
+make run                # Run server first and then run client when server opens the socket, watch for print messages
+make run_verbose
+
+------------------------------------------------------------------------------------------------------------------
+
+The example can be run across internet by setting the following environment variables
+
+setenv SERVER_IP    <SERVER IP ADDRESS  OR  SERVER_HOST_NAMR>
+setenv TCP_PORT     8080
+
+Note: 
+showip $HOSTNAME    # will show IP address
+hostname -i         # will also show IP address
+------------------------------------------------------------------------------------------------------------------
+
+svLogictVecVal is defined in svdpi.h as follows:
+typedef unsigned __int32 uint32_t
+
+typedef strut vpi_vecval {
+        uint32_t aval;
+        uint32_t bval;
+} s_vpi_vecval, *p_vpi_vecval;
+
+typedef s_vpi_vecval svLogicVecVal;
+
+
+In the above definition, "bval" is the control bit (used to map 4 state value) 
+and "aval" is the data bit.
+
+4-state value map
+=================================================
+Value   Control bit (bval)  Data bit (aval)
+  0         0                   0
+  1         0                   1
+  Z         1                   0
+  X         1                   1
+=================================================
+
+
+------------------------------------------------------------------------------------------------------------------
+
+
+Reference: https://www.chipverify.com/systemverilog/systemverilog-packed-arrays
+ 
+So changing  unpacked array “logic [9:0] data[16][8]”
+to packed array “logic [15:0][7:0][9:0] data;”  as shown below preserves the data alignment in DPI data transfers.
+
+typedef struct {
+   logic [15:0][7:0][9:0] data;   // packed array
+   logic [31:0] s;
+} packet_t;
+
+You have to also make sure that data is multiples of 32 bits to match SC struct with C struct.
+The example is given below:
+
+SV_STRUCT:
+typedef struct {
+   logic [15:0][7:0][9:0] data;
+   logic [31:0] s;
+} packet_t;
+
+C_STRUCT:
+typedef struct {
+   svLogicVecVal data[40];   // 10*16*8/32 = 40  (always pack in "integer" multiples of 32-bits)
+   svLogicVecVal s;
+} c_data_t;
+
+-----------------------------------------------------------------------------------------------------------------
+
+Links for port selection and SSL 
+https://techcommunity.microsoft.com/blog/azurepaasblog/ssltls-connection-issue-troubleshooting-test-tools/2240059
+https://sslinsights.com/port-80-vs-8080-vs-443/
+
